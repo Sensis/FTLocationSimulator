@@ -15,10 +15,15 @@
 #import "FTSynthesizeSingleton.h"
 #import "RegexKitLite.h"
 
+@interface FTLocationSimulator ()
+@property SEL nextLocationSelector;
+@end
+
 @implementation FTLocationSimulator
 
 SYNTHESIZE_SINGLETON_FOR_CLASS(FTLocationSimulator)
 
+@synthesize nextLocationSelector;
 @synthesize location;
 @synthesize oldLocation;
 @synthesize delegate;
@@ -40,8 +45,8 @@ SYNTHESIZE_SINGLETON_FOR_CLASS(FTLocationSimulator)
 	[super dealloc];
 }
 
-- (void)fakeNewLocation {
-	// read and parse the KML file
+- (CLLocation*) newFakeLocationFromFile
+{
 	if (!fakeLocations) {
 		NSString *fakeLocationsPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"FakeLocationsRoute"];
 		if(!fakeLocationsPath)
@@ -66,23 +71,30 @@ SYNTHESIZE_SINGLETON_FOR_CLASS(FTLocationSimulator)
             [(NSMutableArray*)fakeLocations addObject:coordinate];
         }
 		[fakeLocationsFile release];
-		
-		if([[NSUserDefaults standardUserDefaults] objectForKey:@"FakeLocationsUpdateInterval"])
-			updateInterval = [[NSUserDefaults standardUserDefaults] doubleForKey:@"FakeLocationsUpdateInterval"];
-		else
-			updateInterval = FAKE_CORE_LOCATION_UPDATE_INTERVAL;
 	}
-	
-	// select a new fake location
+
 	NSArray *latLong = [[fakeLocations objectAtIndex:index] componentsSeparatedByString:@","];
 	CLLocationDegrees lat = [[latLong objectAtIndex:1] doubleValue];
 	CLLocationDegrees lon = [[latLong objectAtIndex:0] doubleValue];
-	self.location = [[[CLLocation alloc] initWithCoordinate:CLLocationCoordinate2DMake(lat, lon)
-												   altitude:0
-										 horizontalAccuracy:0
-										   verticalAccuracy:0
-												  timestamp:[NSDate date]] autorelease];
-	
+	CLLocation* aLocation = [[[CLLocation alloc] initWithCoordinate:CLLocationCoordinate2DMake(lat, lon)
+														  altitude:0
+												horizontalAccuracy:0
+												  verticalAccuracy:0
+														 timestamp:[NSDate date]] autorelease];
+	return aLocation;
+}
+
+- (void)fakeNewLocation
+{
+	// select a new fake location
+	CLLocation* nextLocation = [self performSelector:self.nextLocationSelector];
+	self.location = [[[CLLocation alloc] initWithCoordinate:CLLocationCoordinate2DMake(nextLocation.coordinate.latitude,
+																					   nextLocation.coordinate.longitude)
+																			altitude:nextLocation.altitude
+																  horizontalAccuracy:nextLocation.horizontalAccuracy
+																	verticalAccuracy:nextLocation.verticalAccuracy
+																		   timestamp:[NSDate date]] autorelease];
+
 	// update the userlocation view
 	if (self.mapView) {
 		MKAnnotationView *userLocationView = [self.mapView viewForAnnotation:self.mapView.userLocation];
@@ -116,13 +128,39 @@ SYNTHESIZE_SINGLETON_FOR_CLASS(FTLocationSimulator)
 		if (index == fakeLocations.count) {
 			index = 0;
 		}
-	
 		[self performSelector:@selector(fakeNewLocation) withObject:nil afterDelay:updateInterval];
 	}
 }
 
-- (void)startUpdatingLocation {
+- (void)commonStartUpdating
+{
+	if([[NSUserDefaults standardUserDefaults] objectForKey:@"FakeLocationsUpdateInterval"])
+		updateInterval = [[NSUserDefaults standardUserDefaults] doubleForKey:@"FakeLocationsUpdateInterval"];
+	else
+		updateInterval = FAKE_CORE_LOCATION_UPDATE_INTERVAL;
+
 	updatingLocation = YES;
+	[NSObject cancelPreviousPerformRequestsWithTarget:self];
+}
+
+- (void)startUpdatingLocation
+{
+	[self startUpdatingLocationFromFile];
+}
+
+- (void)startUpdatingLocationFromFile
+{
+	[self commonStartUpdating];
+	index = 0;
+	self.nextLocationSelector = @selector(newFakeLocationFromFile);
+	[self fakeNewLocation];
+}
+
+- (void)startUpdatingLocation:(CLLocation*)aLocation
+{
+	[self commonStartUpdating];
+	self.nextLocationSelector = @selector(location);
+	self.location = [[aLocation copy] autorelease];
 	[self fakeNewLocation];
 }
 

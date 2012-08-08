@@ -34,6 +34,7 @@
 	NSTimeInterval		updateInterval;
 	CLLocationDistance	distanceFilter;
 	NSString			*purpose;
+	SEL nextLocationSelector;
 }
 
 @property (nonatomic, retain) CLLocation *location;
@@ -43,7 +44,10 @@
 @property (nonatomic, readonly) MKAnnotationView* fakeUserLocationView;
 
 + (FTLocationSimulator*)sharedInstance;
+
 - (void)startUpdatingLocation;
+- (void)startUpdatingLocationFromFile;
+- (void)startUpdatingLocation:(CLLocation*)location;
 - (void)stopUpdatingLocation;
 
 
