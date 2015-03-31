@@ -115,10 +115,10 @@ SYNTHESIZE_SINGLETON_FOR_CLASS(FTLocationSimulator)
 
 	// inform the locationManager delegate
 	if((!self.oldLocation || [self.location distanceFromLocation:oldLocation] > distanceFilter) &&
-	   [self.delegate respondsToSelector:@selector(locationManager:didUpdateToLocation:fromLocation:)]) {
-		[self.delegate locationManager:nil
-				   didUpdateToLocation:self.location
-						  fromLocation:oldLocation];
+                [self.delegate respondsToSelector:@selector(locationManager:didUpdateLocations:)]) {
+		
+		[self.delegate locationManager:nil didUpdateLocations:@[self.location]];
+        
 		self.oldLocation = self.location;
 	}
 	
